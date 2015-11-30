@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 
 namespace opdracht1
 {
@@ -12,8 +13,9 @@ namespace opdracht1
         //These will be printed as answers
         public static int counter;
         public static List<Int32> bankAccounts = new List<int>();
-        public static int accountToBlock;
+        public static int accountToBlock = -1;
         public static int writeLock = 0;
+        public static SHA1 sha1 = SHA1.Create();
 
         //TODO: implement the zoekmodus hash check, the zoekmodus termination, the c# lock
 
@@ -106,14 +108,30 @@ namespace opdracht1
             {
                 foreach (Int32 num in list)
                 {
-                    if (MProef(num, mod))
-                        Program.bankAccounts.Add(num);          //Add to shared list
+                    if (MProef(num, mod))                                                   //Add to shared list
+                    {
+                        customLock.doLock(lockMode, programMode, num);
+                    }
                 }
             }
 
             public void ZoekModus()
             {
+                foreach (Int32 num in list)
+                {
+                    string numString = num.ToString();
+                    byte[] bytes = Encoding.UTF8.GetBytes(numString);
 
+                    var sb = new StringBuilder();
+                    foreach (byte b in bytes)
+                    {
+                        var hex = b.ToString("x2");
+                        sb.Append(hex);
+                    }
+
+                    if (sb.ToString() == hash) 
+                        Program.accountToBlock = num;                        
+                }
             }
         }
 
