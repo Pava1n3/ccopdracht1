@@ -10,12 +10,14 @@ namespace opdracht1
 {
     class Program
     {
-        //These will be printed as answers
-        public static int counter;
-        public static int lineNumber = 1;                                       //used for the list mode
-        public static List<Int32[]> bankAccounts = new List<int[]>();
-        public static int accountToBlock = -1;
+        //creat an appropriate lock and modus. 
 
+        //These will be printed as answers
+        public static int counter;                                              //the counter for counting mode
+        //public static int lineNumber = 1;                                       //used for the list mode
+        public static List<Int32[]> bankAccounts = new List<int[]>();           //store the accounts returned by list mode
+        public static int accountToBlock = -1;
+           
         //An int used for the custom lock
         public static int writeLock = 0;
 
@@ -23,7 +25,6 @@ namespace opdracht1
         public static SHA1 sha1 = SHA1.Create();
 
         //TODO: implement the zoekmodus hash check, the zoekmodus termination, the c# lock
-
 
         static void Main(string[] args)
         {
@@ -38,54 +39,73 @@ namespace opdracht1
             int u = Int32.Parse(splitLine[5]);              //what mode should the program run, 0, count, 1, list, 2, search
             string h = splitLine[6];                        //the hash used in search mode
 
+            //Create the lock to be used by the program. The lock instance also creates an instance of ProgramModus inside itself to write away ansers
+            customLock programLock;
+            if (lockType == 0)
+                programLock = new tasLock(u);
+            else 
+                programLock = new cSharpLock(u);
+            
+
             //create a list of threads here
             Thread[] ts = new Thread[p];
 
-            for(int t = 0; t < p; t++)
-            {
-                List<float> bankAccArray = new List<float>();
+            //The maximum amount of threads we can make based on the lower and upper bounds
+            int maxThreads = Math.Min(upper - lower, p);
+            int leftover;
+            //if p is larger than the bounds, leftover will screw up the assigning of numbers
+            if(p < upper - lower)
+                leftover = (upper - lower) % p;
+            else 
+                leftover = -1;
+            //used to divide the remainder of (upper - lower) % p
+            int lastUpper = lower;
 
-                //Create a list of ints for a thread to work on. If there are four threads and lower is 5, an example list is 5, 9, 13, 17. Next is 6, 10, 14, 18
-                for (float q = t + lower; q < upper; q += p)
-                {
-                    bankAccArray.Add(q);
-                }
+            for(int t = 0; t < maxThreads; t++)
+            {
+                //Calculate the range of numbers a thread has to handle
+                int segmentReach = Math.Max(1, (upper - lower) / p);
+                int[] segmentBounds = new int[2];
+
+                segmentBounds[0] = lastUpper;
+
+                if (maxThreads - (t + 1) < leftover)
+                    segmentBounds[1] = lower + (t + 1) * (segmentReach) + 1;
+                else
+                    segmentBounds[1] = lower + (t + 1) * segmentReach;
+
+                lastUpper = segmentBounds[1];
 
                 //create thread t
-                Modus modus = new Modus();
-                modus.list = bankAccArray;
-                modus.lockMode = lockType;
-                modus.programMode = u;
-                ThreadStart tDelegate = new ThreadStart(modus.TelModus);    //While we do initialize it here, we might overwrite it anyway. This is only done to make the compiler happy!
-                //Choose the right mode for the thread to run
-                switch(u)                                                   
-                {
-                    case 0 :
-                        modus.mod = modulus;
-                        break;
-                    case 1 :
-                        modus.mod = modulus;
-                        tDelegate = new ThreadStart(modus.LijstModus);
-                        break;
-                    case 2 :
-                        tDelegate = new ThreadStart(modus.ZoekModus);
-                        modus.hash = h;
-                        break;
-                }
+                DoeMProef dmp = new DoeMProef();
+                dmp.segment = segmentBounds;  //the bounds the thread has to handle
+                dmp.programLock = programLock;
+                dmp.mod = modulus;
+
+                //Create the right method, doMP for lijst and tel, doHashProef for zoek
+                ThreadStart tDelegate = new ThreadStart(dmp.doMP);    //While we do initialize it here, we might overwrite it anyway. This is only done to make the compiler happy!
+
+
                 ts[t] = new Thread(tDelegate);
 
                 //this terminates the threads when the program closes
                 ts[t].IsBackground = true;
             }
 
+            //divide the possible remainder over the threads
+
+
+
             //start threads
-            for(int t = 0; t < p; t++)
+            //for(int t = 0; t < p; t++)
+            for(int t = 0; t < maxThreads; t++ )
             {
                 ts[t].Start();
             }
 
             //join threads
-            for (int t = 0; t < p; t++)
+            //for (int t = 0; t < p; t++)
+            for (int t = 0; t < maxThreads; t++)
             {
                 ts[t].Join();
             }
@@ -95,124 +115,154 @@ namespace opdracht1
             Console.ReadLine();
         }
 
-        class Modus
+        class DoeMProef
         {
-            public List<float> list;
+            public int[] segment;     //what reach of numbers this thread has to handle
             public string hash;
             public int mod;
-            public int lockMode;
-            public int programMode;
 
-            public void TelModus()
+            public customLock programLock;
+
+            //Do the m proef, call on the current lock to handle the answer if it succeeds the m proef
+            public void doMP()
             {
-                foreach (Int32 num in list)
+                for(int i = segment[0]; i < segment[1]; i++)
                 {
-                    if (MProef(num, mod))
-                        customLock.doLock(lockMode, programMode, num);                       //Increment counter
+                    if (MProef(i, mod))
+                        programLock.doLock(i);
                 }
             }
 
-            public void LijstModus()
+            public void doHashProef()
             {
-                foreach (Int32 num in list)
+                for (int i = segment[0]; i < segment[1]; i++)
                 {
-                    if (MProef(num, mod))                                                   //Add to shared list
-                    {
-                        customLock.doLock(lockMode, programMode, num);
-                    }
+                    //HIER OOK NOG DE HASH PROEF DOEN
+                    if (MProef(i, mod))
+                        programLock.doLock(i);
+                }
+
+            }
+                ////foreach (Int32 num in list)
+                ////{
+                ////    string numString = num.ToString();
+                ////    byte[] bytes = Encoding.UTF8.GetBytes(numString);
+                ////    byte[] byteHash;
+
+                ////    byteHash = sha1.ComputeHash(bytes);
+
+                ////    string hashString = "";
+
+                ////    for (int i = 0; i < byteHash.Length; i ++ )
+                ////    {
+                ////        hashString += byteHash[i].ToString();
+                ////    }
+
+                ////        //var sb = new StringBuilder();
+                ////        //foreach (byte b in byteHash)
+                ////        //{
+                ////        //    var hex = b.ToString("x2");
+                ////        //    sb.Append(hex);
+                ////        //}
+
+                ////        //sha1.ComputeHash(bytes);
+
+                ////        if (hashString == hash)
+                ////            customLock.doLock(lockMode, programMode, num);                        
+                ////}
+        }
+
+        //These are the locks
+        public abstract class customLock
+        {
+            protected ProgramModus modus;
+
+            public customLock(int programMode)
+            {
+                switch (programMode)
+                {
+                    case 0:
+                        modus = new TelModus();
+                        break;
+                    case 1:
+                        modus = new LijstModus();
+                        break;
+                    case 2:
+                        modus = new ZoekModus();
+                        break;
                 }
             }
 
-            public void ZoekModus()
+            public abstract void doLock(int num);
+
+        }
+
+        public class tasLock : customLock
+        {
+            public tasLock(int programMode) : base(programMode)
+            {}
+
+            //do the locking work, and call on the modus instance to write away the outcome
+            public override void doLock(int num)
             {
-                foreach (Int32 num in list)
+                while (Interlocked.Exchange(ref Program.writeLock, 1) == 1) ;
+
+                modus.writeAnswer(num);
+
+                Interlocked.Decrement(ref Program.writeLock);              
+            }
+        }
+
+        public class cSharpLock : customLock
+        {
+            public cSharpLock(int programMode) : base(programMode)
+            {}
+            
+            //An object used for the c# lock
+            static Object cSLock = new Object();
+
+            //do the locking work, and call on the modus instance to write away the outcome
+            public override void doLock(int num)
+            {
+                lock (cSLock)
                 {
-                    string numString = num.ToString();
-                    byte[] bytes = Encoding.UTF8.GetBytes(numString);
-                    byte[] byteHash;
-
-                    byteHash = sha1.ComputeHash(bytes);
-
-                    var sb = new StringBuilder();
-                    foreach (byte b in byteHash)
-                    {
-                        var hex = b.ToString("x2");
-                        sb.Append(hex);
-                    }
-
-                    //sha1.ComputeHash(bytes);
-
-                    if (sb.ToString() == hash) 
-                        customLock.doLock(lockMode, programMode, num);                        
+                    modus.writeAnswer(num);
                 }
             }
         }
 
-        public static class customLock
+        //These classes will write the correct answer, so counter++, list.add or return the hashed account
+        public abstract class ProgramModus
         {
-            //An object used for the c# lock
-            static Object cSLock = new Object();
+            public abstract void writeAnswer(int num);
+        }
 
-            public static void doLock(int lockmode, int programMode, int num)
+        public class TelModus : ProgramModus
+        {
+            public override void writeAnswer(int num)
             {
-                switch(lockmode)
-                {
-                    case 0:
-                        tas(programMode, num);
-                        break;
-                    case 1:
-                        cSharpLock(programMode, num);
-                        break;
-                }
+                Program.counter++;
             }
+        }
 
-            public static void tas(int programMode, int num)
+        public class LijstModus : ProgramModus
+        {
+            public override void writeAnswer(int num)
             {
-                while (Interlocked.Exchange(ref Program.writeLock, 1) == 1) ;
+                int[] toAdd = new int[2];
 
-                switch (programMode)
-                {
-                    case 0:
-                        Program.counter++;
-                        break;
-                    case 1:
-                        int[] toAdd = new int[2];
-                        toAdd[0] = Program.lineNumber;
-                        toAdd[1] = num;
-                        Program.bankAccounts.Add(toAdd);
-                        Program.lineNumber++;
-                        break;
-                    case 2:
-                        Console.WriteLine(num);
-                        Environment.Exit(0);
-                        break;
-                }
-
-                Interlocked.Decrement(ref Program.writeLock);               
+                toAdd[0] = Program.bankAccounts.Count + 1;
+                toAdd[1] = num;
+                Program.bankAccounts.Add(toAdd);
             }
+        }
 
-            public static void cSharpLock(int programMode, int num)
+        public class ZoekModus : ProgramModus
+        {
+            public override void writeAnswer(int num)
             {
-                lock(cSLock)
-                {
-                    switch (programMode)
-                    {
-                        case 0:
-                            Program.counter++;
-                            break;
-                        case 1:
-                            int[] toAdd = new int[2];
-                            toAdd[0] = Program.lineNumber;
-                            toAdd[1] = num;
-                            Program.bankAccounts.Add(toAdd);
-                            Program.lineNumber++;
-                            break;
-                        case 2:
-                            Console.WriteLine(num);
-                            Environment.Exit(0);
-                            break;
-                    }
-                }
+                Console.WriteLine(num);
+                Environment.Exit(0);
             }
         }
 
