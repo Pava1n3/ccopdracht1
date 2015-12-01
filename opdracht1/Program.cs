@@ -12,9 +12,14 @@ namespace opdracht1
     {
         //These will be printed as answers
         public static int counter;
-        public static List<Int32> bankAccounts = new List<int>();
+        public static int lineNumber = 1;                                       //used for the list mode
+        public static List<Int32[]> bankAccounts = new List<int[]>();
         public static int accountToBlock = -1;
+
+        //An int used for the custom lock
         public static int writeLock = 0;
+
+        //Used for the SHA1 hash
         public static SHA1 sha1 = SHA1.Create();
 
         //TODO: implement the zoekmodus hash check, the zoekmodus termination, the c# lock
@@ -38,10 +43,10 @@ namespace opdracht1
 
             for(int t = 0; t < p; t++)
             {
-                List<Int32> bankAccArray = new List<int>();
+                List<float> bankAccArray = new List<float>();
 
                 //Create a list of ints for a thread to work on. If there are four threads and lower is 5, an example list is 5, 9, 13, 17. Next is 6, 10, 14, 18
-                for (int q = t + lower; q < upper; q += p)
+                for (float q = t + lower; q < upper; q += p)
                 {
                     bankAccArray.Add(q);
                 }
@@ -68,6 +73,9 @@ namespace opdracht1
                         break;
                 }
                 ts[t] = new Thread(tDelegate);
+
+                //this terminates the threads when the program closes
+                ts[t].IsBackground = true;
             }
 
             //start threads
@@ -89,7 +97,7 @@ namespace opdracht1
 
         class Modus
         {
-            public List<Int32> list;
+            public List<float> list;
             public string hash;
             public int mod;
             public int lockMode;
@@ -121,22 +129,30 @@ namespace opdracht1
                 {
                     string numString = num.ToString();
                     byte[] bytes = Encoding.UTF8.GetBytes(numString);
+                    byte[] byteHash;
+
+                    byteHash = sha1.ComputeHash(bytes);
 
                     var sb = new StringBuilder();
-                    foreach (byte b in bytes)
+                    foreach (byte b in byteHash)
                     {
                         var hex = b.ToString("x2");
                         sb.Append(hex);
                     }
 
+                    //sha1.ComputeHash(bytes);
+
                     if (sb.ToString() == hash) 
-                        Program.accountToBlock = num;                        
+                        customLock.doLock(lockMode, programMode, num);                        
                 }
             }
         }
 
         public static class customLock
         {
+            //An object used for the c# lock
+            static Object cSLock = new Object();
+
             public static void doLock(int lockmode, int programMode, int num)
             {
                 switch(lockmode)
@@ -160,10 +176,15 @@ namespace opdracht1
                         Program.counter++;
                         break;
                     case 1:
-                        Program.bankAccounts.Add(num);
+                        int[] toAdd = new int[2];
+                        toAdd[0] = Program.lineNumber;
+                        toAdd[1] = num;
+                        Program.bankAccounts.Add(toAdd);
+                        Program.lineNumber++;
                         break;
                     case 2:
-                        Program.accountToBlock = num;
+                        Console.WriteLine(num);
+                        Environment.Exit(0);
                         break;
                 }
 
@@ -172,7 +193,26 @@ namespace opdracht1
 
             public static void cSharpLock(int programMode, int num)
             {
-
+                lock(cSLock)
+                {
+                    switch (programMode)
+                    {
+                        case 0:
+                            Program.counter++;
+                            break;
+                        case 1:
+                            int[] toAdd = new int[2];
+                            toAdd[0] = Program.lineNumber;
+                            toAdd[1] = num;
+                            Program.bankAccounts.Add(toAdd);
+                            Program.lineNumber++;
+                            break;
+                        case 2:
+                            Console.WriteLine(num);
+                            Environment.Exit(0);
+                            break;
+                    }
+                }
             }
         }
 
@@ -211,7 +251,8 @@ namespace opdracht1
                     Console.WriteLine(Program.counter);
                     break;
                 case 1:
-                    Console.WriteLine(Program.bankAccounts);
+                    foreach (int[] account in Program.bankAccounts)
+                        Console.WriteLine(account[0] + " " + account[1]);
                     break;
                 case 2:
                     Console.WriteLine(Program.accountToBlock);
