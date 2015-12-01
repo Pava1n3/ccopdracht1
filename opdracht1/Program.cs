@@ -139,9 +139,36 @@ namespace opdracht1
                 {
                     //HIER OOK NOG DE HASH PROEF DOEN
                     if (MProef(i, mod))
-                        programLock.doLock(i);
-                }
+                    {
+                        string numString = i.ToString();
+                        //byte[] bytes = Encoding.ASCII.GetBytes(numString);
+                        byte[] bytes = BitConverter.GetBytes(i);
+                        byte[] byteHash;
 
+                        byteHash = sha1.ComputeHash(bytes);
+
+                        string hashString = "";
+
+                        //for (int j = 0; j < byteHash.Length; j++)
+                        //{
+                        //    hashString += byteHash[j].ToString();
+                        //}
+
+                        var sb = new StringBuilder();
+                        foreach (byte b in byteHash)
+                        {
+                            var hex = b.ToString("x2");
+                            sb.Append(hex);
+                        }
+
+                        hashString = sb.ToString();
+
+                        //sha1.ComputeHash(bytes);
+
+                        if (hashString == hash)
+                            programLock.doLock(i);
+                    }
+                }
             }
                 ////foreach (Int32 num in list)
                 ////{
@@ -269,28 +296,45 @@ namespace opdracht1
 
         public static bool MProef(int number, int modulus)
         {
-            List<Int32> list = new List<int>();
-            int listLength;
-            int listSum = 0;
+            int numberCount = 1;
+            int num = number;
+            int sum = 0;
 
-            while(number != 0)
+            while(num > 0)
             {
-                list.Add(number % 10);
-                number /= 10;
-            }
-            listLength = list.Count();
-            list.Reverse();
-            list.ToArray();
+                sum += numberCount * (num % 10);
 
-            for (int t = 0; t < listLength; t++)
-            {
-                listSum += list[listLength - t - 1] * (t + 1);
+                numberCount++;
+                num /= 10;
             }
 
-            if (listSum % modulus == 0)
+            if (sum % modulus == 0)
                 return true;
-            else
-                return false;
+
+            return false;
+
+            //List<Int32> list = new List<int>();
+            //int listLength;
+            //int listSum = 0;
+
+            //while(number != 0)
+            //{
+            //    list.Add(number % 10);
+            //    number /= 10;
+            //}
+            //listLength = list.Count();
+            //list.Reverse();
+            //list.ToArray();
+
+            //for (int t = 0; t < listLength; t++)
+            //{
+            //    listSum += list[listLength - t - 1] * (t + 1);
+            //}
+
+            //if (listSum % modulus == 0)
+            //    return true;
+            //else
+            //    return false;
         }
 
         public static void PrintAnswer(int mode)
