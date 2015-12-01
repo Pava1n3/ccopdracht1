@@ -83,7 +83,14 @@ namespace opdracht1
                 dmp.mod = modulus;
 
                 //Create the right method, doMP for lijst and tel, doHashProef for zoek
-                ThreadStart tDelegate = new ThreadStart(dmp.doMP);    //While we do initialize it here, we might overwrite it anyway. This is only done to make the compiler happy!
+                ThreadStart tDelegate;
+                if (u == 2)
+                {
+                    dmp.hash = h;
+                    tDelegate = new ThreadStart(dmp.doHashProef);
+                }
+                else
+                    tDelegate = new ThreadStart(dmp.doMP);   
 
 
                 ts[t] = new Thread(tDelegate);
@@ -91,10 +98,6 @@ namespace opdracht1
                 //this terminates the threads when the program closes
                 ts[t].IsBackground = true;
             }
-
-            //divide the possible remainder over the threads
-
-
 
             //start threads
             //for(int t = 0; t < p; t++)
@@ -110,7 +113,9 @@ namespace opdracht1
                 ts[t].Join();
             }
 
-            //print answer
+            //print answer if the zoek modus hasn't found anything
+            //if (u == 2 && accountToBlock == -1)
+                //Console.WriteLine(-1);
             PrintAnswer(u);
             Console.ReadLine();
         }
@@ -137,24 +142,25 @@ namespace opdracht1
             {
                 for (int i = segment[0]; i < segment[1]; i++)
                 {
-                    //HIER OOK NOG DE HASH PROEF DOEN
                     if (MProef(i, mod))
                     {
                         string numString = i.ToString();
-                        //byte[] bytes = Encoding.ASCII.GetBytes(numString);
-                        byte[] bytes = BitConverter.GetBytes(i);
+                        byte[] bytes = Encoding.UTF8.GetBytes(numString);
+                        //byte[] bytes = BitConverter.GetBytes(i);
                         byte[] byteHash;
 
                         byteHash = sha1.ComputeHash(bytes);
 
                         string hashString = "";
+                        //hashString = byteHash.ToString();
+
 
                         //for (int j = 0; j < byteHash.Length; j++)
                         //{
                         //    hashString += byteHash[j].ToString();
                         //}
 
-                        var sb = new StringBuilder();
+                        var sb = new StringBuilder(byteHash.Length * 2);
                         foreach (byte b in byteHash)
                         {
                             var hex = b.ToString("x2");
@@ -170,33 +176,6 @@ namespace opdracht1
                     }
                 }
             }
-                ////foreach (Int32 num in list)
-                ////{
-                ////    string numString = num.ToString();
-                ////    byte[] bytes = Encoding.UTF8.GetBytes(numString);
-                ////    byte[] byteHash;
-
-                ////    byteHash = sha1.ComputeHash(bytes);
-
-                ////    string hashString = "";
-
-                ////    for (int i = 0; i < byteHash.Length; i ++ )
-                ////    {
-                ////        hashString += byteHash[i].ToString();
-                ////    }
-
-                ////        //var sb = new StringBuilder();
-                ////        //foreach (byte b in byteHash)
-                ////        //{
-                ////        //    var hex = b.ToString("x2");
-                ////        //    sb.Append(hex);
-                ////        //}
-
-                ////        //sha1.ComputeHash(bytes);
-
-                ////        if (hashString == hash)
-                ////            customLock.doLock(lockMode, programMode, num);                        
-                ////}
         }
 
         //These are the locks
@@ -288,7 +267,9 @@ namespace opdracht1
         {
             public override void writeAnswer(int num)
             {
-                Console.WriteLine(num);
+                //Console.WriteLine(num);
+                Program.accountToBlock = num;
+                PrintAnswer(2);
                 Environment.Exit(0);
             }
         }
@@ -312,29 +293,6 @@ namespace opdracht1
                 return true;
 
             return false;
-
-            //List<Int32> list = new List<int>();
-            //int listLength;
-            //int listSum = 0;
-
-            //while(number != 0)
-            //{
-            //    list.Add(number % 10);
-            //    number /= 10;
-            //}
-            //listLength = list.Count();
-            //list.Reverse();
-            //list.ToArray();
-
-            //for (int t = 0; t < listLength; t++)
-            //{
-            //    listSum += list[listLength - t - 1] * (t + 1);
-            //}
-
-            //if (listSum % modulus == 0)
-            //    return true;
-            //else
-            //    return false;
         }
 
         public static void PrintAnswer(int mode)
@@ -350,6 +308,7 @@ namespace opdracht1
                     break;
                 case 2:
                     Console.WriteLine(Program.accountToBlock);
+                    Environment.Exit(0);
                     break;
             }
         }
